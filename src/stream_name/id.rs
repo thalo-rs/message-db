@@ -35,17 +35,27 @@ impl ID {
     /// a compound ID.
     ///
     /// Returns an error if the ID is empty.
-    pub fn new(id: &str) -> Result<Self> {
-        if id.is_empty() {
-            return Err(Error::EmptyStreamName);
+    pub fn new<T>(id: T) -> Result<Self>
+    where
+        T: Into<String> + AsRef<str>,
+    {
+        if id.as_ref().contains(Self::COMPOUND_ID_SEPARATOR) {
+            let ids: Vec<String> = id
+                .as_ref()
+                .split(Self::COMPOUND_ID_SEPARATOR)
+                .map(|id| id.to_string())
+                .collect();
+
+            Self::new_compound(ids)
+        } else {
+            let id: String = id.into();
+
+            if id.is_empty() {
+                return Err(Error::EmptyStreamName);
+            }
+
+            Ok(ID(vec![id]))
         }
-
-        let ids: Vec<String> = id
-            .split(Self::COMPOUND_ID_SEPARATOR)
-            .map(|id| id.to_string())
-            .collect();
-
-        Self::new_compound(ids)
     }
 
     /// Creates a compound ID from a vec of IDs.
