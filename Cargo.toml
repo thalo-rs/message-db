@@ -1,0 +1,47 @@
+[package]
+name = "message_db"
+version = "0.1.0"
+authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
+edition = "2021"
+description = "Microservice native message and event store for Postgres"
+repository = "https://github.com/thalo-rs/message_db"
+license = "MIT OR Apache-2.0"
+keywords = ["event-sourcing", "postgres", "eventide"]
+categories = ["database"]
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+heck = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.2.2", features = ["serde", "v4"] }
+
+either = { version = "1.8", optional = true }
+futures = { version = "0.3", optional = true }
+pin-project = { version = "1.0", optional = true }
+sqlx = { version = "0.6", features = [
+  "chrono",
+  "json",
+  "macros",
+  "postgres",
+  "runtime-tokio-rustls",
+  "uuid",
+], optional = true }
+tokio = { version = "1.22", features = ["time"], optional = true }
+tokio-util = { version = "0.7", optional = true }
+tracing = { version = "0.1", optional = true }
+typed-builder = { version = "0.11.0", optional = true }
+
+[features]
+default = ["database"]
+database = [
+  "dep:either",
+  "dep:futures",
+  "dep:pin-project",
+  "dep:sqlx",
+  "dep:tokio",
+  "dep:tokio-util",
+  "dep:tracing",
+  "dep:typed-builder",
+]
