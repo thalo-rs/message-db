@@ -61,6 +61,7 @@ mod id;
 
 use std::{fmt, str};
 
+use serde::de::{self, Visitor};
 use serde::{Deserialize, Serialize};
 
 pub use self::category::Category;
@@ -68,7 +69,7 @@ pub use self::id::ID;
 use crate::Error;
 
 /// A stream name containing a category, and optionally an ID.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StreamName {
     /// The category of the stream name.
     ///
@@ -141,6 +142,41 @@ impl str::FromStr for StreamName {
                 Ok(StreamName { category, id: None })
             }
         }
+    }
+}
+
+impl Serialize for StreamName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for StreamName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StreamNameVisitor;
+
+        impl<'de> Visitor<'de> for StreamNameVisitor {
+            type Value = StreamName;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("StreamName")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                v.parse().map_err(de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_str(StreamNameVisitor)
     }
 }
 
