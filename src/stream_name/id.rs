@@ -12,7 +12,7 @@ impl ID {
 
     pub fn new(id: &str) -> Result<Self> {
         if id.is_empty() {
-            return Err(Error::EmptyStreamID);
+            return Err(Error::EmptyStreamName);
         }
 
         let ids: Vec<String> = id
@@ -25,7 +25,7 @@ impl ID {
 
     pub fn new_compound(ids: Vec<String>) -> Result<Self> {
         if ids.is_empty() || ids.iter().any(|id| id.is_empty()) {
-            return Err(Error::EmptyStreamID);
+            return Err(Error::EmptyStreamName);
         }
 
         Ok(ID(ids))

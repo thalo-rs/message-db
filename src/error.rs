@@ -6,8 +6,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[error("failed to deserialize data: {0}")]
     DeserializeData(serde_json::Error),
-    #[error("stream category is empty")]
-    EmptyStreamID,
+    #[error("stream name is empty")]
+    EmptyStreamName,
 
     // Database errors
     #[cfg(feature = "database")]

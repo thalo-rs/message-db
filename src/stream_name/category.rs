@@ -18,7 +18,7 @@ impl Category {
     pub fn new(entity_name: impl Into<String>, types: Vec<String>) -> Result<Self> {
         let entity_name = entity_name.into();
         if entity_name.is_empty() {
-            return Err(Error::EmptyStreamID);
+            return Err(Error::EmptyStreamName);
         }
 
         Ok(Category { entity_name, types })
