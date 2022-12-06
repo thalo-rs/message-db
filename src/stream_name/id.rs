@@ -28,13 +28,6 @@ impl ID {
             return Err(Error::EmptyStreamID);
         }
 
-        if ids
-            .iter()
-            .any(|id| id.contains(Self::COMPOUND_ID_SEPARATOR))
-        {
-            return Err(Error::ContainsSeparator);
-        }
-
         Ok(ID(ids))
     }
 

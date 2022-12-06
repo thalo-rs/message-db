@@ -6,8 +6,6 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[error("failed to deserialize data: {0}")]
     DeserializeData(serde_json::Error),
-    #[error("stream category or ID contains separator")]
-    ContainsSeparator,
     #[error("stream category is empty")]
     EmptyStreamID,
 
