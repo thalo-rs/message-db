@@ -92,10 +92,13 @@ impl MessageDb {
     where
         for<'c> F:
             'a + FnOnce(&'c mut Transaction<'static, Postgres>) -> BoxFuture<'c, Result<R>> + Send,
+        R: Send,
     {
         async move {
             let mut tx = self.pool.begin().await?;
-            callback(&mut tx).await
+            let result = callback(&mut tx).await?;
+            tx.commit().await?;
+            Ok(result)
         }
         .boxed()
     }
