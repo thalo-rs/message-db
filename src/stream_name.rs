@@ -4,13 +4,6 @@ pub mod id;
 use std::{fmt, str};
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "database")]
-use sqlx::{
-    database::{HasArguments, HasValueRef},
-    encode::IsNull,
-    postgres::{PgHasArrayType, PgTypeInfo},
-    Database, Decode, Encode, Type,
-};
 
 use self::category::Category;
 use self::id::ID;
@@ -70,57 +63,6 @@ impl str::FromStr for StreamName {
                 Ok(StreamName { category, id: None })
             }
         }
-    }
-}
-
-#[cfg(feature = "database")]
-impl<'q, DB: Database> Encode<'q, DB> for StreamName
-where
-    String: Encode<'q, DB>,
-{
-    fn encode_by_ref(&self, buf: &mut <DB as HasArguments<'q>>::ArgumentBuffer) -> IsNull {
-        <String as Encode<'q, DB>>::encode_by_ref(&self.to_string(), buf)
-    }
-}
-
-#[cfg(feature = "database")]
-impl<'r, DB: Database> Decode<'r, DB> for StreamName
-where
-    String: Decode<'r, DB>,
-{
-    fn decode(
-        value: <DB as HasValueRef<'r>>::ValueRef,
-    ) -> Result<
-        Self,
-        Box<dyn std::error::Error + 'static + ::std::marker::Send + ::std::marker::Sync>,
-    > {
-        let s = <String as Decode<'r, DB>>::decode(value)?;
-        let stream_name = s.parse()?;
-        Ok(stream_name)
-    }
-}
-
-#[cfg(feature = "database")]
-impl<DB: Database> Type<DB> for StreamName
-where
-    String: Type<DB>,
-{
-    fn type_info() -> DB::TypeInfo {
-        <String as Type<DB>>::type_info()
-    }
-
-    fn compatible(ty: &DB::TypeInfo) -> ::std::primitive::bool {
-        <String as Type<DB>>::compatible(ty)
-    }
-}
-
-#[cfg(feature = "database")]
-impl PgHasArrayType for StreamName
-where
-    String: PgHasArrayType,
-{
-    fn array_type_info() -> PgTypeInfo {
-        <String as PgHasArrayType>::array_type_info()
     }
 }
 

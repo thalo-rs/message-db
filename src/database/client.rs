@@ -16,9 +16,9 @@ macro_rules! message_db_fn {
         concat!(
             r#"
                 SELECT
-                id::uuid,
+                id,
                 stream_name,
-                "type" as msg_type,
+                "type",
                 "position",
                 global_position,
                 data::jsonb,

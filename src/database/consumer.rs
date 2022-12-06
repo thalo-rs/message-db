@@ -15,7 +15,7 @@ use tokio_util::sync::ReusableBoxFuture;
 use tracing::{error, info};
 use typed_builder::TypedBuilder;
 
-use crate::client::{GetCategoryMessagesOpts, MessageDb, WriteMessageOpts};
+use crate::database::client::{GetCategoryMessagesOpts, MessageDb, WriteMessageOpts};
 use crate::message::{DeserializeMessage, GenericMessage, Message};
 use crate::stream_name::category::Category;
 use crate::stream_name::id::ID;
