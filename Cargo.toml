@@ -45,3 +45,7 @@ database = [
   "dep:tracing",
   "dep:typed-builder",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

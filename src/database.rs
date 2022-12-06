@@ -1,3 +1,5 @@
+//! Message DB database functionality.
+
 mod client;
 mod consumer;
 mod message;

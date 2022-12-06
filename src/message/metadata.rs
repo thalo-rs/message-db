@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::stream_name::category::Category;
-use crate::stream_name::StreamName;
+use crate::stream_name::{Category, StreamName};
 
 /// A message's metadata object contains information about the stream where the
 /// message resides, the previous message in a series of messages that make up a

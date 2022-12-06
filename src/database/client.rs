@@ -1,10 +1,13 @@
 use std::borrow::Cow;
 
+use either::Either;
 use futures::future::BoxFuture;
+use futures::stream::BoxStream;
 use futures::FutureExt;
 use serde::Deserialize;
 use serde_json::Value;
-use sqlx::{Executor, PgPool, Postgres, Transaction};
+use sqlx::database::HasStatement;
+use sqlx::{Database, Describe, Execute, Executor, PgPool, Postgres, Transaction};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -30,11 +33,13 @@ macro_rules! message_db_fn {
     };
 }
 
+/// Message DB client containing a postgres connection pool.
 #[derive(Clone, Debug)]
 pub struct MessageDb {
     pool: PgPool,
 }
 
+/// Options for [`MessageDb::write_message`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct WriteMessageOpts {
     #[builder(default, setter(strip_option))]
@@ -45,6 +50,7 @@ pub struct WriteMessageOpts {
     expected_version: Option<i64>,
 }
 
+/// Options for [`MessageDb::get_stream_messages`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct GetStreamMessagesOpts<'a> {
     #[builder(default, setter(strip_option))]
@@ -55,6 +61,7 @@ pub struct GetStreamMessagesOpts<'a> {
     condition: Option<&'a str>,
 }
 
+/// Options for [`MessageDb::get_category_messages`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct GetCategoryMessagesOpts<'a> {
     #[builder(default, setter(strip_option))]
@@ -72,12 +79,14 @@ pub struct GetCategoryMessagesOpts<'a> {
 }
 
 impl MessageDb {
+    /// Connects to the message store using a postgres connection url.
     pub async fn connect(url: &str) -> Result<Self> {
         Ok(MessageDb {
             pool: PgPool::connect(url).await?,
         })
     }
 
+    /// Starts a transaction.
     pub fn transaction<'a, F, R>(&'a self, callback: F) -> BoxFuture<'a, Result<R>>
     where
         for<'c> F:
@@ -359,19 +368,16 @@ impl<'c> Executor<'c> for &MessageDb {
     fn fetch_many<'e, 'q: 'e, E: 'q>(
         self,
         query: E,
-    ) -> futures::stream::BoxStream<
+    ) -> BoxStream<
         'e,
         Result<
-            either::Either<
-                <Self::Database as sqlx::Database>::QueryResult,
-                <Self::Database as sqlx::Database>::Row,
-            >,
+            Either<<Self::Database as Database>::QueryResult, <Self::Database as Database>::Row>,
             sqlx::Error,
         >,
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database>,
     {
         self.pool.fetch_many(query)
     }
@@ -379,10 +385,10 @@ impl<'c> Executor<'c> for &MessageDb {
     fn fetch_optional<'e, 'q: 'e, E: 'q>(
         self,
         query: E,
-    ) -> BoxFuture<'e, Result<Option<<Self::Database as sqlx::Database>::Row>, sqlx::Error>>
+    ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, sqlx::Error>>
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database>,
     {
         self.pool.fetch_optional(query)
     }
@@ -390,11 +396,8 @@ impl<'c> Executor<'c> for &MessageDb {
     fn prepare_with<'e, 'q: 'e>(
         self,
         sql: &'q str,
-        parameters: &'e [<Self::Database as sqlx::Database>::TypeInfo],
-    ) -> BoxFuture<
-        'e,
-        Result<<Self::Database as sqlx::database::HasStatement<'q>>::Statement, sqlx::Error>,
-    >
+        parameters: &'e [<Self::Database as Database>::TypeInfo],
+    ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, sqlx::Error>>
     where
         'c: 'e,
     {
@@ -404,7 +407,7 @@ impl<'c> Executor<'c> for &MessageDb {
     fn describe<'e, 'q: 'e>(
         self,
         sql: &'q str,
-    ) -> BoxFuture<'e, Result<sqlx::Describe<Self::Database>, sqlx::Error>>
+    ) -> BoxFuture<'e, Result<Describe<Self::Database>, sqlx::Error>>
     where
         'c: 'e,
     {

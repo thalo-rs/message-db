@@ -17,11 +17,10 @@ use typed_builder::TypedBuilder;
 
 use crate::database::client::{GetCategoryMessagesOpts, MessageDb, WriteMessageOpts};
 use crate::message::{DeserializeMessage, GenericMessage, Message};
-use crate::stream_name::category::Category;
-use crate::stream_name::id::ID;
-use crate::stream_name::StreamName;
+use crate::stream_name::{Category, StreamName, ID};
 use crate::{Error, Result};
 
+/// Options for [`MessageDb::subscribe_to_category`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct SubscribeToCategoryOpts<'a> {
     #[builder(default = Duration::from_millis(100))]
@@ -50,6 +49,7 @@ struct Recorded {
 }
 
 impl MessageDb {
+    /// Returns a new consumer position stream name for the `category`.
     pub fn position_stream_name(
         mut category: Category,
         consumer_identifier: Option<&str>,
@@ -65,6 +65,9 @@ impl MessageDb {
         Ok(StreamName { category, id })
     }
 
+    /// Subscribes to multiple categories into a combined stream.
+    ///
+    /// See [`MessageDb::subscribe_to_category`].
     pub async fn subscribe_to_categories<'a, 'b, 'e, 'c: 'a + 'e, T, E>(
         executor: E,
         category_names: &[&'a str],
@@ -83,6 +86,31 @@ impl MessageDb {
         Ok(futures::stream::select_all(streams))
     }
 
+    /// Subscribes to a category, consuming messages as a stream.
+    ///
+    /// The consumer position is saved every
+    /// `SubscribeToCategoryOpts::position_update_interval` messages consumed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use futures::StreamExt;
+    /// use message_db::database::{MessageDb, SubscribeToCategoryOpts};
+    /// use message_db::message::MessageData;
+    ///
+    /// let mut stream = MessageDb::subscribe_to_category::<MessageData, _>(
+    ///     &message_db,
+    ///     "account",
+    ///     &SubscribeToCategoryOpts::builder()
+    ///         .identifier("my_app")
+    ///         .build(),
+    /// )
+    /// .await?;
+    ///
+    /// while let Some(command) = stream.next().await {
+    ///     /* ... */
+    /// }
+    /// ```
     pub async fn subscribe_to_category<'a, 'b, 'e, 'c: 'a + 'e, T, E>(
         executor: E,
         category_name: &'a str,
@@ -140,6 +168,10 @@ impl MessageDb {
         })
     }
 
+    /// Saves a consumer position.
+    ///
+    /// Consumer positions are automatically saved when using
+    /// [`MessageDb::subscribe_to_category`].
     pub async fn write_consumer_position<'e, 'c: 'e, E>(
         executor: E,
         category_name: &str,
@@ -155,6 +187,7 @@ impl MessageDb {
         Self::write_consumer_position_to_stream(executor, &stream_name, position, opts).await
     }
 
+    /// Saves a consumer position to a stream name.
     pub async fn write_consumer_position_to_stream<'e, 'c: 'e, E>(
         executor: E,
         stream_name: &str,
@@ -176,6 +209,9 @@ impl MessageDb {
     }
 }
 
+/// A category stream for consuming messages and storing the position.
+///
+/// This is returned by [`MessageDb::subscribe_to_category`].
 #[pin_project]
 pub struct CategoryStream<'a, E, T> {
     category_name: &'a str,
