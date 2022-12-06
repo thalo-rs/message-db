@@ -65,17 +65,17 @@ impl MessageDb {
         Ok(StreamName { category, id })
     }
 
-    pub async fn subscribe_to_categories<'a, 'b, 'e, 'c: 'a + 'e, E, T>(
+    pub async fn subscribe_to_categories<'a, 'b, 'e, 'c: 'a + 'e, T, E>(
         executor: E,
         category_names: &[&'a str],
         opts: &'b SubscribeToCategoryOpts<'a>,
     ) -> Result<SelectAll<CategoryStream<'a, E, T>>>
     where
-        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone + Send + Sync,
         T: for<'de> Deserialize<'de> + 'a,
+        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone + Send + Sync,
     {
         let streams = futures::future::join_all(category_names.iter().map(|category_name| {
-            Self::subscribe_to_category::<E, T>(executor.clone(), category_name, opts).boxed()
+            Self::subscribe_to_category::<T, E>(executor.clone(), category_name, opts).boxed()
         }))
         .await
         .into_iter()
@@ -83,14 +83,14 @@ impl MessageDb {
         Ok(futures::stream::select_all(streams))
     }
 
-    pub async fn subscribe_to_category<'a, 'b, 'e, 'c: 'a + 'e, E, T>(
+    pub async fn subscribe_to_category<'a, 'b, 'e, 'c: 'a + 'e, T, E>(
         executor: E,
         category_name: &'a str,
         opts: &'b SubscribeToCategoryOpts<'a>,
     ) -> Result<CategoryStream<'a, E, T>>
     where
-        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone,
         T: for<'de> Deserialize<'de> + 'a,
+        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone,
     {
         let stream_name =
             Self::position_stream_name(category_name.parse()?, opts.identifier)?.to_string();
@@ -278,7 +278,7 @@ where
     }
 }
 
-async fn make_future<'a, 'b, 'c, 'e, 'f: 'e, E, T>(
+async fn make_future<'a, 'b, 'c, 'e, 'f: 'e, T, E>(
     executor: E,
     category_name: &'b str,
     opts: GetCategoryMessagesOpts<'c>,
@@ -289,14 +289,14 @@ async fn make_future<'a, 'b, 'c, 'e, 'f: 'e, E, T>(
     Instant,
 )
 where
-    E: 'f + sqlx::Executor<'f, Database = Postgres>,
     T: for<'de> Deserialize<'de> + 'a,
+    E: 'f + sqlx::Executor<'f, Database = Postgres>,
 {
     if !sleep.is_zero() {
         tokio::time::sleep(sleep).await;
     }
     let poll_time = Instant::now();
-    let result = MessageDb::get_category_messages::<E, T>(executor, category_name, &opts).await;
+    let result = MessageDb::get_category_messages::<T, E>(executor, category_name, &opts).await;
     (result, opts, poll_time)
 }
 

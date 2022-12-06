@@ -143,14 +143,14 @@ impl MessageDb {
     /// WHERE clause.
     ///
     /// See <http://docs.eventide-project.org/user-guide/message-db/server-functions.html#get-messages-from-a-stream>
-    pub async fn get_stream_messages<'e, 'c: 'e, E, T>(
+    pub async fn get_stream_messages<'e, 'c: 'e, T, E>(
         executor: E,
         stream_name: &str,
         opts: &GetStreamMessagesOpts<'_>,
     ) -> Result<Vec<Message<T>>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
         T: for<'de> Deserialize<'de>,
+        E: 'e + sqlx::Executor<'c, Database = Postgres>,
     {
         let messages: Vec<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_stream_messages($1, $2, $3, $4)"
@@ -172,14 +172,14 @@ impl MessageDb {
     /// WHERE clause.
     ///
     /// See <http://docs.eventide-project.org/user-guide/message-db/server-functions.html#get-messages-from-a-stream>
-    pub async fn get_category_messages<'e, 'c: 'e, E, T>(
+    pub async fn get_category_messages<'e, 'c: 'e, T, E>(
         executor: E,
         category_name: &str,
         opts: &GetCategoryMessagesOpts<'_>,
     ) -> Result<Vec<Message<T>>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
         T: for<'de> Deserialize<'de>,
+        E: 'e + sqlx::Executor<'c, Database = Postgres>,
     {
         let messages: Vec<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_category_messages($1, $2, $3, $4, $5, $6, $7)"
@@ -200,14 +200,14 @@ impl MessageDb {
     /// Retrieves a message messages table that corresponds to the highest
     /// position number in the stream, and (optionally) corresponds to the
     /// message type specified by the type parameter.
-    pub async fn get_last_stream_message<'e, 'c: 'e, E, T>(
+    pub async fn get_last_stream_message<'e, 'c: 'e, T, E>(
         executor: E,
         stream_name: &str,
         msg_type: Option<&str>,
     ) -> Result<Option<Message<T>>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
         T: for<'de> Deserialize<'de>,
+        E: 'e + sqlx::Executor<'c, Database = Postgres>,
     {
         let message: Option<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_last_stream_message($1, $2)"
