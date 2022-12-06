@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use sqlx::database::HasStatement;
 use sqlx::{Database, Describe, Execute, Executor, PgPool, Postgres, Transaction};
+use tracing::trace;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -127,7 +128,7 @@ impl MessageDb {
             .transpose()
             .unwrap();
 
-        let pos = sqlx::query_scalar!(
+        let position = sqlx::query_scalar!(
             "SELECT message_store.write_message($1, $2, $3, $4, $5, $6)",
             &id,
             stream_name,
@@ -142,7 +143,9 @@ impl MessageDb {
             expected: "position version",
         })?;
 
-        Ok(pos)
+        trace!(%id, %stream_name, %msg_type, %position, "wrote message");
+
+        Ok(position)
     }
 
     /// Retrieve messages from a single stream, optionally specifying the
