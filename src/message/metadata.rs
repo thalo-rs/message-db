@@ -20,14 +20,14 @@ use crate::stream_name::{Category, StreamName};
 #[serde(default)]
 pub struct Metadata {
     /// The name of the stream where the message resides.
-    pub stream_name: Option<String>,
+    pub stream_name: Option<StreamName>,
     /// The sequential position of the message in its stream.
     pub position: Option<i64>,
     /// The sequential position of the message in the entire message store.
     pub global_position: Option<i64>,
     /// The stream name of the message that precedes the message in a sequential
     /// [message flow](http://docs.eventide-project.org/user-guide/messages-and-message-data/messages.html#message-workflows).
-    pub causation_message_stream_name: Option<String>,
+    pub causation_message_stream_name: Option<StreamName>,
     /// The sequential position of the causation message in its stream.
     pub causation_message_position: Option<i64>,
     /// The sequential position of the message in the entire message store.
@@ -47,6 +47,38 @@ pub struct Metadata {
     pub properties: HashMap<String, Value>,
     /// Additional local properties.
     pub local_properties: HashMap<String, Value>,
+}
+
+/// Metadata containing borrowed fields.
+///
+/// See [`Metadata`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct MetadataRef<'a> {
+    /// The name of the stream where the message resides.
+    pub stream_name: Option<&'a StreamName>,
+    /// The sequential position of the message in its stream.
+    pub position: Option<i64>,
+    /// The sequential position of the message in the entire message store.
+    pub global_position: Option<i64>,
+    /// The stream name of the message that precedes the message in a sequential
+    /// [message flow](http://docs.eventide-project.org/user-guide/messages-and-message-data/messages.html#message-workflows).
+    pub causation_message_stream_name: Option<&'a StreamName>,
+    /// The sequential position of the causation message in its stream.
+    pub causation_message_position: Option<i64>,
+    /// The sequential position of the message in the entire message store.
+    pub causation_message_global_position: Option<i64>,
+    /// Name of the stream that represents an encompassing business process that
+    /// coordinates the sub-process that the message is a part of.
+    pub correlation_stream_name: Option<&'a str>,
+    /// Name of a stream where a reply should be sent as a result of processing
+    /// the message.
+    pub reply_stream_name: Option<&'a str>,
+    /// Version identifier of the message schema itself.
+    pub schema_version: Option<&'a str>,
+    /// Additional properties.
+    pub properties: HashMap<&'a str, &'a Value>,
+    /// Additional local properties.
+    pub local_properties: HashMap<&'a str, &'a Value>,
 }
 
 impl Metadata {

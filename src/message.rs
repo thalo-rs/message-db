@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-pub use self::metadata::Metadata;
+pub use self::metadata::{Metadata, MetadataRef};
 use crate::stream_name::StreamName;
 use crate::{Error, Result};
 

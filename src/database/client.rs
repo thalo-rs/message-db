@@ -11,7 +11,7 @@ use sqlx::{Database, Describe, Execute, Executor, PgPool, Postgres, Transaction}
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::message::{DeserializeMessage, GenericMessage, Message, Metadata};
+use crate::message::{DeserializeMessage, GenericMessage, Message, MetadataRef};
 use crate::{Error, Result};
 
 macro_rules! message_db_fn {
@@ -41,11 +41,11 @@ pub struct MessageDb {
 
 /// Options for [`MessageDb::write_message`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
-pub struct WriteMessageOpts {
+pub struct WriteMessageOpts<'a> {
     #[builder(default, setter(strip_option))]
-    id: Option<String>,
+    id: Option<&'a str>,
     #[builder(default, setter(strip_option))]
-    metadata: Option<Metadata>,
+    metadata: Option<MetadataRef<'a>>,
     #[builder(default, setter(strip_option))]
     expected_version: Option<i64>,
 }
@@ -110,27 +110,26 @@ impl MessageDb {
         stream_name: &str,
         msg_type: &str,
         data: &Value,
-        opts: &WriteMessageOpts,
+        opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
         E: 'e + sqlx::Executor<'c, Database = Postgres>,
     {
         let id = opts
             .id
-            .as_ref()
             .map(Cow::Borrowed)
             .unwrap_or_else(|| Cow::Owned(Uuid::new_v4().to_string()));
 
         let metadata = opts
             .metadata
-            .clone()
+            .as_ref()
             .map(serde_json::to_value)
             .transpose()
-            .map_err(Error::DeserializeMetadata)?;
+            .unwrap();
 
         let pos = sqlx::query_scalar!(
             "SELECT message_store.write_message($1, $2, $3, $4, $5, $6)",
-            id.as_str(),
+            &id,
             stream_name,
             msg_type,
             data,

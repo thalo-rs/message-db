@@ -177,7 +177,7 @@ impl MessageDb {
         category_name: &str,
         identifier: Option<&str>,
         position: i64,
-        opts: &WriteMessageOpts,
+        opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
         E: 'e + sqlx::Executor<'c, Database = Postgres>,
@@ -192,7 +192,7 @@ impl MessageDb {
         executor: E,
         stream_name: &str,
         position: i64,
-        opts: &WriteMessageOpts,
+        opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
         E: 'e + sqlx::Executor<'c, Database = Postgres>,
