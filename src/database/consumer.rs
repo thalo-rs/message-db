@@ -21,7 +21,7 @@ use crate::stream_name::{Category, StreamName, ID};
 use crate::{Error, Result};
 
 /// Options for [`MessageDb::subscribe_to_category`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
+#[derive(Clone, Debug, PartialEq, Eq, TypedBuilder)]
 pub struct SubscribeToCategoryOpts<'a> {
     #[builder(default = Duration::from_millis(100))]
     poll_interval: Duration,
@@ -206,6 +206,12 @@ impl MessageDb {
             opts,
         )
         .await
+    }
+}
+
+impl Default for SubscribeToCategoryOpts<'_> {
+    fn default() -> Self {
+        SubscribeToCategoryOpts::builder().build()
     }
 }
 
