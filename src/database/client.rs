@@ -13,7 +13,7 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::message::{DeserializeMessage, GenericMessage, Message, MetadataRef};
-use crate::{Error, Result};
+use crate::Result;
 
 macro_rules! message_db_fn {
     ($s:literal) => {
@@ -119,7 +119,7 @@ impl MessageDb {
         opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let id = opts
             .id
@@ -133,20 +133,16 @@ impl MessageDb {
             .transpose()
             .unwrap();
 
-        let position = sqlx::query_scalar!(
-            "SELECT message_store.write_message($1, $2, $3, $4, $5, $6)",
-            &id,
-            stream_name,
-            msg_type,
-            data,
-            metadata,
-            opts.expected_version,
-        )
-        .fetch_one(executor)
-        .await?
-        .ok_or(Error::Decode {
-            expected: "position version",
-        })?;
+        let position =
+            sqlx::query_scalar("SELECT message_store.write_message($1, $2, $3, $4, $5, $6)")
+                .bind(&id)
+                .bind(stream_name)
+                .bind(msg_type)
+                .bind(data)
+                .bind(metadata)
+                .bind(opts.expected_version)
+                .fetch_one(executor)
+                .await?;
 
         trace!(%id, %stream_name, %msg_type, %position, "wrote message");
 
@@ -193,7 +189,7 @@ impl MessageDb {
     ) -> Result<Vec<Message<T>>>
     where
         T: for<'de> Deserialize<'de>,
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let messages: Vec<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_stream_messages($1, $2, $3, $4)"
@@ -222,7 +218,7 @@ impl MessageDb {
     ) -> Result<Vec<Message<T>>>
     where
         T: for<'de> Deserialize<'de>,
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let messages: Vec<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_category_messages($1, $2, $3, $4, $5, $6, $7)"
@@ -250,7 +246,7 @@ impl MessageDb {
     ) -> Result<Option<Message<T>>>
     where
         T: for<'de> Deserialize<'de>,
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let message: Option<GenericMessage> = sqlx::query_as(message_db_fn!(
             "message_store.get_last_stream_message($1, $2)"
@@ -269,40 +265,41 @@ impl MessageDb {
         stream_name: &str,
     ) -> Result<Option<i64>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let version = sqlx::query_scalar!(
-            "SELECT * FROM message_store.stream_version($1)",
-            stream_name
-        )
-        .fetch_one(executor)
-        .await?;
+        let version = sqlx::query_scalar("SELECT * FROM message_store.stream_version($1)")
+            .bind(stream_name)
+            .fetch_one(executor)
+            .await?;
 
         Ok(version)
     }
 
     /// Returns the ID part of the stream name.
-    pub async fn id<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<String>
+    pub async fn id<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<Option<String>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let id = sqlx::query_scalar!("SELECT * FROM message_store.id($1)", stream_name)
+        let id = sqlx::query_scalar("SELECT * FROM message_store.id($1)")
+            .bind(stream_name)
             .fetch_one(executor)
-            .await?
-            .unwrap_or_default();
+            .await?;
 
         Ok(id)
     }
 
     /// Returns the cardinal ID part of the stream name.
-    pub async fn cardinal_id<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<String>
+    pub async fn cardinal_id<'e, 'c: 'e, E>(
+        executor: E,
+        stream_name: &str,
+    ) -> Result<Option<String>>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let id = sqlx::query_scalar!("SELECT * FROM message_store.cardinal_id($1)", stream_name)
+        let id = sqlx::query_scalar("SELECT * FROM message_store.cardinal_id($1)")
+            .bind(stream_name)
             .fetch_one(executor)
-            .await?
-            .unwrap_or_default();
+            .await?;
 
         Ok(id)
     }
@@ -310,12 +307,12 @@ impl MessageDb {
     /// Returns the category part of the stream name.
     pub async fn category<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<String>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let category = sqlx::query_scalar!("SELECT * FROM message_store.category($1)", stream_name)
+        let category = sqlx::query_scalar("SELECT * FROM message_store.category($1)")
+            .bind(stream_name)
             .fetch_one(executor)
-            .await?
-            .unwrap_or_default();
+            .await?;
 
         Ok(category)
     }
@@ -323,13 +320,12 @@ impl MessageDb {
     /// Returns a boolean affirmative if the stream name is a category.
     pub async fn is_category<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<bool>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let is_category =
-            sqlx::query_scalar!("SELECT * FROM message_store.is_category($1)", stream_name)
-                .fetch_one(executor)
-                .await?
-                .unwrap_or_default();
+        let is_category = sqlx::query_scalar("SELECT * FROM message_store.is_category($1)")
+            .bind(stream_name)
+            .fetch_one(executor)
+            .await?;
 
         Ok(is_category)
     }
@@ -347,14 +343,12 @@ impl MessageDb {
     /// Returns an integer representing the lock ID.
     pub async fn acquire_lock<'e, 'c: 'e, E>(executor: E, stream_name: &str) -> Result<i64>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let lock = sqlx::query_scalar!("SELECT * FROM message_store.acquire_lock($1)", stream_name)
+        let lock = sqlx::query_scalar("SELECT * FROM message_store.acquire_lock($1)")
+            .bind(stream_name)
             .fetch_one(executor)
-            .await?
-            .ok_or(Error::Decode {
-                expected: "lock id",
-            })?;
+            .await?;
 
         Ok(lock)
     }
@@ -365,14 +359,12 @@ impl MessageDb {
     /// Returns an integer representing the lock ID.
     pub async fn hash_64<'e, 'c: 'e, E>(executor: E, value: &str) -> Result<i64>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let hash = sqlx::query_scalar!("SELECT * FROM message_store.hash_64($1)", value)
+        let hash = sqlx::query_scalar("SELECT * FROM message_store.hash_64($1)")
+            .bind(value)
             .fetch_one(executor)
-            .await?
-            .ok_or(Error::Decode {
-                expected: "hash 64",
-            })?;
+            .await?;
 
         Ok(hash)
     }
@@ -383,14 +375,11 @@ impl MessageDb {
     /// Returns an integer representing the lock ID.
     pub async fn message_store_version<'e, 'c: 'e, E>(executor: E) -> Result<String>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
-        let version = sqlx::query_scalar!("SELECT * FROM message_store.message_store_version()")
+        let version = sqlx::query_scalar("SELECT * FROM message_store.message_store_version()")
             .fetch_one(executor)
-            .await?
-            .ok_or(Error::Decode {
-                expected: "message store version",
-            })?;
+            .await?;
 
         Ok(version)
     }

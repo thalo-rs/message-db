@@ -9,7 +9,7 @@ use futures::stream::SelectAll;
 use futures::{ready, FutureExt, Stream};
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
-use sqlx::Postgres;
+use sqlx::{Executor, Postgres};
 use tokio::time::Instant;
 use tokio_util::sync::ReusableBoxFuture;
 use tracing::{error, info};
@@ -18,7 +18,7 @@ use typed_builder::TypedBuilder;
 use crate::database::client::{GetCategoryMessagesOpts, MessageDb, WriteMessageOpts};
 use crate::message::{DeserializeMessage, GenericMessage, Message};
 use crate::stream_name::{Category, StreamName, ID};
-use crate::{Error, Result};
+use crate::Result;
 
 /// Options for [`MessageDb::subscribe_to_category`].
 #[derive(Clone, Debug, PartialEq, Eq, TypedBuilder)]
@@ -76,7 +76,7 @@ impl MessageDb {
     ) -> Result<SelectAll<CategoryStream<'a, E, T>>>
     where
         T: for<'de> Deserialize<'de> + 'a,
-        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone + Send + Sync,
+        E: 'a + 'c + 'e + Executor<'c, Database = Postgres> + Clone + Send + Sync,
     {
         let streams = futures::future::join_all(category_names.iter().map(|category_name| {
             Self::subscribe_to_category::<T, E>(executor.clone(), category_name, opts).boxed()
@@ -119,25 +119,22 @@ impl MessageDb {
     ) -> Result<CategoryStream<'a, E, T>>
     where
         T: for<'de> Deserialize<'de> + 'a,
-        E: 'a + 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone,
+        E: 'a + 'c + 'e + Executor<'c, Database = Postgres> + Clone,
     {
         let stream_name =
             Self::position_stream_name(category_name.parse()?, opts.identifier)?.to_string();
-        let last_message =
-            Self::get_last_stream_message(executor.clone(), &stream_name, Some("position")).await?;
+        let last_message = Self::get_last_stream_message::<Recorded, _>(
+            executor.clone(),
+            &stream_name,
+            Some("position"),
+        )
+        .await?;
         let expected_version = last_message
             .as_ref()
             .map(|last| last.position)
             .unwrap_or(-1);
         let last_position = last_message
-            .map(|last| {
-                last.deserialize_data::<Recorded>()
-                    .map(|recorded| recorded.position + 1)
-            })
-            .transpose()
-            .map_err(|_| Error::Decode {
-                expected: "recorded position",
-            })?
+            .map(|recorded| recorded.position + 1)
             .unwrap_or(-1);
 
         let fut = ReusableBoxFuture::new(make_future(
@@ -181,7 +178,7 @@ impl MessageDb {
         opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let stream_name =
             Self::position_stream_name(category_name.parse()?, identifier)?.to_string();
@@ -196,7 +193,7 @@ impl MessageDb {
         opts: &WriteMessageOpts<'_>,
     ) -> Result<i64>
     where
-        E: 'e + sqlx::Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
     {
         let data = Recorded { position };
         Self::write_message(
@@ -243,7 +240,7 @@ pub struct CategoryStream<'a, E, T> {
 
 impl<'a, 'e, 'c: 'a + 'e, E, T> Stream for CategoryStream<'a, E, T>
 where
-    E: 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone,
+    E: 'c + 'e + Executor<'c, Database = Postgres> + Clone,
     T: for<'de> Deserialize<'de> + 'a,
 {
     type Item = Result<Vec<Message<T>>>;
@@ -327,7 +324,7 @@ async fn make_future<'a, 'b, 'c, 'e, 'f: 'e, T, E>(
 )
 where
     T: for<'de> Deserialize<'de> + 'a,
-    E: 'f + sqlx::Executor<'f, Database = Postgres>,
+    E: 'f + Executor<'f, Database = Postgres>,
 {
     if !sleep.is_zero() {
         tokio::time::sleep(sleep).await;
@@ -344,7 +341,7 @@ async fn make_update_position_future<'e, 'c: 'e, E>(
     expected_version: i64,
 ) -> Result<i64>
 where
-    E: 'e + sqlx::Executor<'c, Database = Postgres>,
+    E: 'e + Executor<'c, Database = Postgres>,
 {
     MessageDb::write_consumer_position_to_stream(
         executor,
