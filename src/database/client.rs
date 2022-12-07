@@ -35,7 +35,7 @@ macro_rules! message_db_fn {
 }
 
 /// Type alias for a MessageDb transaction.
-pub type MessageDbTransaction = Transaction<'static, Postgres>;
+pub type MessageDbTransaction<'a> = Transaction<'a, Postgres>;
 
 /// Message DB client containing a postgres connection pool.
 #[derive(Clone, Debug)]
@@ -93,7 +93,7 @@ impl MessageDb {
     /// Starts a transaction.
     pub fn transaction<'a, F, R>(&'a self, callback: F) -> BoxFuture<'a, Result<R>>
     where
-        for<'c> F: 'a + FnOnce(&'c mut MessageDbTransaction) -> BoxFuture<'c, Result<R>> + Send,
+        for<'c> F: 'a + FnOnce(&'c mut MessageDbTransaction<'a>) -> BoxFuture<'c, Result<R>> + Send,
         R: Send,
     {
         async move {
