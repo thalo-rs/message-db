@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::task::{Context, Poll};
@@ -158,7 +158,7 @@ impl MessageDb {
             category_name,
             fut,
             message_db: executor,
-            messages: VecDeque::new(),
+            message_type: PhantomData,
             poll_interval: opts.poll_interval,
             position_update_interval: opts.position_update_interval,
             messages_since_last_position_update: 0,
@@ -231,7 +231,7 @@ pub struct CategoryStream<'a, E, T> {
         ),
     >,
     message_db: E,
-    messages: VecDeque<Message<T>>,
+    message_type: PhantomData<T>,
     poll_interval: Duration,
     position_update_interval: usize,
     messages_since_last_position_update: usize,
@@ -246,20 +246,15 @@ where
     E: 'c + 'e + sqlx::Executor<'c, Database = Postgres> + Clone,
     T: for<'de> Deserialize<'de> + 'a,
 {
-    type Item = Result<Message<T>>;
+    type Item = Result<Vec<Message<T>>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        let first_message = this.messages.pop_front();
         let fut_poll = this.fut.poll(cx);
         let pos_fut_poll = this
             .update_position_future
             .as_mut()
             .map(|pos_fut| pos_fut.poll_unpin(cx));
-
-        if let Some(message) = first_message {
-            return Poll::Ready(Some(Ok(message)));
-        }
 
         if let Some(pos_fut_poll) = pos_fut_poll {
             match pos_fut_poll {
@@ -311,10 +306,7 @@ where
 
                 let messages: Result<Vec<_>, _> = messages.deserialize_messages();
                 match messages {
-                    Ok(messages) => {
-                        *this.messages = messages.into();
-                        Poll::Ready(Some(Ok(this.messages.pop_front().unwrap())))
-                    }
+                    Ok(messages) => Poll::Ready(Some(Ok(messages))),
                     Err(err) => Poll::Ready(Some(Err(err))),
                 }
             }
