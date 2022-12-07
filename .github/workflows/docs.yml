@@ -1,0 +1,33 @@
+name: Docs
+on:
+  push:
+    branches:
+      - main
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+      # Rust builds can take some time, cache them.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build docs
+        run: cargo doc --no-deps
+      - name: Copy doc directory
+        run: cp -r ./target/doc .
+      - name: Build docs
+        run: rm -rf $(ls -A -p | grep -v -e '^doc/$' | grep -v -e '^.git/$')
+      - name: Write index.html
+        run: echo "<meta http-equiv=\"refresh\" content=\"0; url=message_db\">" > doc/index.html
+      - name: Add & Commit
+        uses: EndBug/add-and-commit@v9.1.1
+        with:
+          add: .
+          message: 'chore: push docs from Github workflow'
+          new_branch: doc
+          push: origin doc --set-upstream --force
