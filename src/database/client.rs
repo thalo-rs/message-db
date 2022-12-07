@@ -153,6 +153,33 @@ impl MessageDb {
         Ok(position)
     }
 
+    /// Writes multiple messages to a stream in a transaction.
+    ///
+    /// Messages to be written are in a tuple containing (msg_type, data, opts).
+    ///
+    /// Returns the position of the last message written.
+    /// If `messages` is empty, `-1` is returned.
+    ///
+    /// See [`MessageDb::write_message`].
+    pub async fn write_messages(
+        &self,
+        stream_name: &str,
+        messages: &[(&str, &Value, &WriteMessageOpts<'_>)],
+    ) -> Result<i64> {
+        self.transaction(|tx| {
+            async move {
+                let mut version = -1;
+                for (msg_type, data, opts) in messages {
+                    version = MessageDb::write_message(&mut *tx, stream_name, msg_type, data, opts)
+                        .await?;
+                }
+                Ok(version)
+            }
+            .boxed()
+        })
+        .await
+    }
+
     /// Retrieve messages from a single stream, optionally specifying the
     /// starting position, the number of messages to retrieve, and an
     /// additional condition that will be appended to the SQL command's
