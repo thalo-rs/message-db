@@ -27,6 +27,7 @@ pub struct SubscribeToCategoryOpts<'a> {
     poll_interval: Duration,
     #[builder(default, setter(strip_option))]
     batch_size: Option<i64>,
+    /// Set to 0 to never update the position.
     #[builder(default = 100)]
     position_update_interval: usize,
     #[builder(default, setter(into, strip_option))]
@@ -291,7 +292,9 @@ where
             Ok(messages) if messages.is_empty() => Poll::Pending,
             Ok(messages) => {
                 *this.messages_since_last_position_update += messages.len();
-                if this.messages_since_last_position_update >= this.position_update_interval {
+                if *this.position_update_interval != 0
+                    && this.messages_since_last_position_update >= this.position_update_interval
+                {
                     let pos = messages.first().unwrap().global_position;
                     *this.update_position_future = Some(
                         make_update_position_future(
