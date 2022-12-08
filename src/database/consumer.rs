@@ -15,12 +15,12 @@ use tokio_util::sync::ReusableBoxFuture;
 use tracing::{error, info};
 use typed_builder::TypedBuilder;
 
-use crate::database::client::{GetCategoryMessagesOpts, MessageDb, WriteMessageOpts};
+use crate::database::client::{GetCategoryMessagesOpts, MessageStore, WriteMessageOpts};
 use crate::message::{DeserializeMessage, GenericMessage, Message};
 use crate::stream_name::{Category, StreamName, ID};
 use crate::Result;
 
-/// Options for [`MessageDb::subscribe_to_category`].
+/// Options for [`MessageStore::subscribe_to_category`].
 #[derive(Clone, Debug, PartialEq, Eq, TypedBuilder)]
 pub struct SubscribeToCategoryOpts<'a> {
     #[builder(default = Duration::from_millis(100))]
@@ -49,7 +49,7 @@ struct Recorded {
     position: i64,
 }
 
-impl MessageDb {
+impl MessageStore {
     /// Returns a new consumer position stream name for the `category`.
     pub fn position_stream_name(
         mut category: Category,
@@ -68,7 +68,7 @@ impl MessageDb {
 
     /// Subscribes to multiple categories into a combined stream.
     ///
-    /// See [`MessageDb::subscribe_to_category`].
+    /// See [`MessageStore::subscribe_to_category`].
     pub async fn subscribe_to_categories<'a, 'b, 'e, 'c: 'a + 'e, T, E>(
         executor: E,
         category_names: &[&'a str],
@@ -96,11 +96,11 @@ impl MessageDb {
     ///
     /// ```ignore
     /// use futures::StreamExt;
-    /// use message_db::database::{MessageDb, SubscribeToCategoryOpts};
+    /// use message_db::database::{MessageStore, SubscribeToCategoryOpts};
     /// use message_db::message::MessageData;
     ///
-    /// let mut stream = MessageDb::subscribe_to_category::<MessageData, _>(
-    ///     &message_db,
+    /// let mut stream = MessageStore::subscribe_to_category::<MessageData, _>(
+    ///     &message_store,
     ///     "account",
     ///     &SubscribeToCategoryOpts::builder()
     ///         .identifier("my_app")
@@ -154,7 +154,7 @@ impl MessageDb {
         Ok(CategoryStream {
             category_name,
             fut,
-            message_db: executor,
+            message_store: executor,
             message_type: PhantomData,
             poll_interval: opts.poll_interval,
             position_update_interval: opts.position_update_interval,
@@ -169,7 +169,7 @@ impl MessageDb {
     /// Saves a consumer position.
     ///
     /// Consumer positions are automatically saved when using
-    /// [`MessageDb::subscribe_to_category`].
+    /// [`MessageStore::subscribe_to_category`].
     pub async fn write_consumer_position<'e, 'c: 'e, E>(
         executor: E,
         category_name: &str,
@@ -215,7 +215,7 @@ impl Default for SubscribeToCategoryOpts<'_> {
 
 /// A category stream for consuming messages and storing the position.
 ///
-/// This is returned by [`MessageDb::subscribe_to_category`].
+/// This is returned by [`MessageStore::subscribe_to_category`].
 #[pin_project]
 pub struct CategoryStream<'a, E, T> {
     category_name: &'a str,
@@ -227,7 +227,7 @@ pub struct CategoryStream<'a, E, T> {
             Instant,
         ),
     >,
-    message_db: E,
+    message_store: E,
     message_type: PhantomData<T>,
     poll_interval: Duration,
     position_update_interval: usize,
@@ -273,7 +273,7 @@ where
 
         let sleep_duration = this.poll_interval.saturating_sub(poll_time.elapsed());
         let next_fut = make_future(
-            this.message_db.clone(),
+            this.message_store.clone(),
             this.category_name,
             opts,
             sleep_duration,
@@ -290,7 +290,7 @@ where
                     let pos = messages.first().unwrap().global_position;
                     *this.update_position_future = Some(
                         make_update_position_future(
-                            this.message_db.clone(),
+                            this.message_store.clone(),
                             this.consumer_stream_name.clone(),
                             pos,
                             *this.expected_position_version,
@@ -330,7 +330,7 @@ where
         tokio::time::sleep(sleep).await;
     }
     let poll_time = Instant::now();
-    let result = MessageDb::get_category_messages::<T, E>(executor, category_name, &opts).await;
+    let result = MessageStore::get_category_messages::<T, E>(executor, category_name, &opts).await;
     (result, opts, poll_time)
 }
 
@@ -343,7 +343,7 @@ async fn make_update_position_future<'e, 'c: 'e, E>(
 where
     E: 'e + Executor<'c, Database = Postgres>,
 {
-    MessageDb::write_consumer_position_to_stream(
+    MessageStore::write_consumer_position_to_stream(
         executor,
         &stream_name,
         pos,

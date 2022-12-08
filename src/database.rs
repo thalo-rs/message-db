@@ -1,6 +1,6 @@
-//! Message DB database functionality.
+//! Message store database functionality.
 //!
-//! See [`MessageDb`].
+//! See [`MessageStore`].
 
 mod client;
 mod consumer;

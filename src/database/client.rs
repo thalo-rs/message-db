@@ -34,16 +34,16 @@ macro_rules! message_db_fn {
     };
 }
 
-/// Type alias for a MessageDb transaction.
-pub type MessageDbTransaction<'a> = Transaction<'a, Postgres>;
+/// Type alias for a [MessageStore] transaction.
+pub type MessageStoreTransaction<'a> = Transaction<'a, Postgres>;
 
 /// Message DB client containing a postgres connection pool.
 #[derive(Clone, Debug)]
-pub struct MessageDb {
+pub struct MessageStore {
     pool: PgPool,
 }
 
-/// Options for [`MessageDb::write_message`].
+/// Options for [`MessageStore::write_message`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct WriteMessageOpts<'a> {
     #[builder(default, setter(strip_option))]
@@ -54,7 +54,7 @@ pub struct WriteMessageOpts<'a> {
     expected_version: Option<i64>,
 }
 
-/// Options for [`MessageDb::get_stream_messages`].
+/// Options for [`MessageStore::get_stream_messages`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct GetStreamMessagesOpts<'a> {
     #[builder(default, setter(strip_option))]
@@ -65,7 +65,7 @@ pub struct GetStreamMessagesOpts<'a> {
     condition: Option<&'a str>,
 }
 
-/// Options for [`MessageDb::get_category_messages`].
+/// Options for [`MessageStore::get_category_messages`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, TypedBuilder)]
 pub struct GetCategoryMessagesOpts<'a> {
     #[builder(default, setter(strip_option))]
@@ -82,10 +82,10 @@ pub struct GetCategoryMessagesOpts<'a> {
     pub(crate) condition: Option<&'a str>,
 }
 
-impl MessageDb {
+impl MessageStore {
     /// Connects to the message store using a postgres connection url.
     pub async fn connect(url: &str) -> Result<Self> {
-        Ok(MessageDb {
+        Ok(MessageStore {
             pool: PgPool::connect(url).await?,
         })
     }
@@ -93,7 +93,8 @@ impl MessageDb {
     /// Starts a transaction.
     pub fn transaction<'a, F, R>(&'a self, callback: F) -> BoxFuture<'a, Result<R>>
     where
-        for<'c> F: 'a + FnOnce(&'c mut MessageDbTransaction<'a>) -> BoxFuture<'c, Result<R>> + Send,
+        for<'c> F:
+            'a + FnOnce(&'c mut MessageStoreTransaction<'a>) -> BoxFuture<'c, Result<R>> + Send,
         R: Send,
     {
         async move {
@@ -156,7 +157,7 @@ impl MessageDb {
     /// Returns the position of the last message written.
     /// If `messages` is empty, `-1` is returned.
     ///
-    /// See [`MessageDb::write_message`].
+    /// See [`MessageStore::write_message`].
     pub async fn write_messages(
         &self,
         stream_name: &str,
@@ -166,8 +167,9 @@ impl MessageDb {
             async move {
                 let mut version = -1;
                 for (msg_type, data, opts) in messages {
-                    version = MessageDb::write_message(&mut *tx, stream_name, msg_type, data, opts)
-                        .await?;
+                    version =
+                        MessageStore::write_message(&mut *tx, stream_name, msg_type, data, opts)
+                            .await?;
                 }
                 Ok(version)
             }
@@ -385,7 +387,7 @@ impl MessageDb {
     }
 }
 
-impl<'c> Executor<'c> for &MessageDb {
+impl<'c> Executor<'c> for &MessageStore {
     type Database = Postgres;
 
     fn fetch_many<'e, 'q: 'e, E: 'q>(
