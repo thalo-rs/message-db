@@ -1,5 +1,5 @@
 [package]
-name = "message_db"
+name = "messagedb"
 version = "0.1.0"
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
 edition = "2021"
