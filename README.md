@@ -17,4 +17,4 @@ This project is licensed under the [MIT] OR [Apache-2.0] license.
 
 ## Contributing
 
-Contributions are welcome! :baloon:
+Contributions are welcome!
