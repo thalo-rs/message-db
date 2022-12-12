@@ -1,0 +1,20 @@
+ignore_merge_commits = false
+branch_whitelist = ["main"]
+pre_bump_hooks = [
+  "cargo build --release",
+  "echo 'bumping to {{version}}'",
+  "cargo bump {{version}}",
+]
+post_bump_hooks = ["git push", "git push origin {{version}}", "cargo publish"]
+
+[commit_types]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "thalo"
+owner = "message-db"
+authors = [{ signature = "Ari Seyhun", username = "tqwewe" }]
+
+[bump_profiles]
